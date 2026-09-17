@@ -5,6 +5,12 @@ A complete, machine-checked proof of **Rademacher's theorem** (1962):
 > Every graph on `n ≥ 3` vertices with at least `⌊n²/4⌋ + 1` edges
 > contains at least `⌊n/2⌋` triangles.
 
+**Scope note.** This repository formalizes the case `l = 1` (Rademacher's
+original theorem). The generalization of Khadzhiivanov–Nikiforov (1981) —
+at least `⌊n/2⌋ · l` triangles for `⌊n²/4⌋ + l` edges with `2l < n` — is
+not (yet) included; its known proofs require the long structural argument of
+Lovász–Simonovits.
+
 ## Main result
 
 ```lean
