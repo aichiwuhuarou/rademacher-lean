@@ -104,8 +104,91 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   -- Step 4: pair with ≥ n/18 common neighbors.
   sorry
 
-/-- **Common neighborhood lower bound** (inclusion-exclusion).
-For any two vertices a, b: `|N(a) ∩ N(b)| ≥ d(a) + d(b) - n`. -/
+/-- Vertices covered by a family of triangles. -/
+def coveredVerts (S : List (Finset V)) : Finset V := S.foldl (· ∪ ·) ∅
+
+/-- A list of vertex-disjoint triangles, each a triangle of `G`. -/
+structure TrianglePacking where
+  tris : List (Finset V)
+  mem_triangles : ∀ t ∈ tris, t ∈ G.cliqueFinset 3
+  pairwise_disjoint : ∀ t₁ ∈ tris, ∀ t₂ ∈ tris, t₁ ≠ t₂ → Disjoint t₁ t₂
+
+/-- A packing is maximal: every triangle of `G` meets some triangle in the packing. -/
+def TrianglePacking.IsMaximal (P : TrianglePacking G) : Prop :=
+  ∀ t ∈ G.cliqueFinset 3, ∃ t' ∈ P.tris, ¬ Disjoint t t'
+
+/-- A maximal packing exists (by finiteness: among all packings, viewed as
+subsets of the finite set of triangles, one of maximum cardinality exists
+and is maximal). -/
+theorem exists_maximal_trianglePacking :
+    ∃ P : TrianglePacking G, P.IsMaximal := by
+  classical
+  -- Candidate packings: Finsets S ⊆ cliqueFinset 3 with pairwise-disjoint members.
+  -- This is a Finset of Finset (Finset V) (subsets of a finite Finset), so we
+  -- can take a maximum-cardinality one via exists_max_image.
+  -- Valid packings as a filtered subset of the powerset:
+  set candidates : Finset (Finset (Finset V)) :=
+    (G.cliqueFinset 3).powerset.filter (fun S =>
+      ∀ t₁ ∈ S, ∀ t₂ ∈ S, t₁ ≠ t₂ → Disjoint t₁ t₂) with hcand
+  have hempty : ∅ ∈ candidates := by
+    simp [hcand]
+  have hne : candidates.Nonempty := ⟨∅, hempty⟩
+  -- Take a maximum-cardinality candidate
+  obtain ⟨S, hS, hmax⟩ := Finset.exists_max_image candidates (fun s => s.card) hne
+  have hSmem : S ∈ candidates := hS
+  simp only [hcand, Finset.mem_filter, Finset.mem_powerset] at hSmem
+  obtain ⟨hsub, hdisj⟩ := hSmem
+  -- Build the packing from S
+  refine ⟨⟨S.toList, ?_, ?_⟩, ?_⟩
+  · intro t ht
+    rw [Finset.mem_toList] at ht
+    exact hsub ht
+  · intro t₁ ht₁ t₂ ht₂ hne'
+    rw [Finset.mem_toList] at ht₁ ht₂
+    exact hdisj t₁ ht₁ t₂ ht₂ hne'
+  · -- Maximality: if some triangle t is disjoint from all of S, then
+    -- S ∪ {t} would be a strictly larger candidate — contradiction.
+    intro t ht
+    by_contra hcon
+    push_neg at hcon
+    -- t is disjoint from every member of S
+    have hall : ∀ t' ∈ S, Disjoint t t' := by
+      intro t' ht'
+      exact hcon t' (show t' ∈ S.toList from Finset.mem_toList.mpr ht')
+    -- S ∪ {t} is a strictly larger candidate
+    have htnS : t ∉ S := by
+      intro hts
+      have h3 : t.card = 3 := (G.mem_cliqueFinset_iff.mp ht).2
+      have hne : t ≠ ∅ := fun he => by rw [he] at h3; simp at h3
+      have hdisjself : Disjoint t t := hall t hts
+      have hcap : t ∩ t = ∅ := by simpa using hdisjself
+      have hzero : t.card = 0 := by
+        have : t ∩ t = t := Finset.inter_self t
+        rw [this] at hcap
+        exact Finset.card_eq_zero.mpr hcap
+      omega
+    have hlarger : (insert t S) ∈ candidates := by
+      simp only [hcand, Finset.mem_filter, Finset.mem_powerset]
+      refine ⟨?_, ?_⟩
+      · intro x hx
+        simp only [Finset.mem_insert] at hx
+        rcases hx with rfl | hx'
+        · exact ht
+        · exact hsub hx'
+      · intro t₁ ht₁ t₂ ht₂ hne'
+        all_goals simp only [Finset.mem_insert] at ht₁ ht₂
+        rcases ht₁ with rfl | ht₁' <;> rcases ht₂ with rfl | ht₂'
+        · exact absurd rfl hne'
+        · exact hall t₂ ht₂'
+        · exact (hall t₁ ht₁').symm
+        · exact hdisj t₁ ht₁' t₂ ht₂' hne'
+    -- Contradiction with maximality of S
+    have hcard : S.card < (insert t S).card := by
+      rw [Finset.card_insert_of_notMem htnS]
+      omega
+    have hbound := hmax (insert t S) hlarger
+    rw [Finset.card_insert_of_notMem htnS] at hbound
+    omega
 lemma commonNeighbors_lower (a b : V) :
     G.degree a + G.degree b - Fintype.card V ≤
       (G.neighborFinset a ∩ G.neighborFinset b).card := by
