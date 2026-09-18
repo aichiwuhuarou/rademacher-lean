@@ -105,7 +105,24 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   sorry
 
 /-- Vertices covered by a family of triangles. -/
-def coveredVerts (S : List (Finset V)) : Finset V := S.foldl (· ∪ ·) ∅
+def coveredVerts (S : List (Finset V)) : Finset V := S.foldr (· ∪ ·) ∅
+
+/-- Membership in `coveredVerts`: x is covered iff x lies in some member. -/
+lemma mem_coveredVerts {x : V} {S : List (Finset V)} :
+    x ∈ coveredVerts S ↔ ∃ t ∈ S, x ∈ t := by
+  induction S with
+  | nil => simp [coveredVerts]
+  | cons a rest ih =>
+    show x ∈ a ∪ List.foldr (· ∪ ·) ∅ rest ↔ ∃ t ∈ a :: rest, x ∈ t
+    rw [Finset.mem_union, show x ∈ List.foldr (· ∪ ·) ∅ rest ↔ ∃ t ∈ rest, x ∈ t from ih]
+    constructor
+    · rintro (h | ⟨t, ht, hxt⟩)
+      · exact ⟨a, List.mem_cons_self, h⟩
+      · exact ⟨t, List.mem_cons_of_mem _ ht, hxt⟩
+    · rintro ⟨t, ht, hxt⟩
+      rcases List.mem_cons.mp ht with heq | hrest
+      · rw [← heq]; exact Or.inl hxt
+      · exact Or.inr ⟨t, hrest, hxt⟩
 
 /-- A list of vertex-disjoint triangles, each a triangle of `G`. -/
 structure TrianglePacking where
@@ -117,9 +134,34 @@ structure TrianglePacking where
 def TrianglePacking.IsMaximal (P : TrianglePacking G) : Prop :=
   ∀ t ∈ G.cliqueFinset 3, ∃ t' ∈ P.tris, ¬ Disjoint t t'
 
-/-- A maximal packing exists (by finiteness: among all packings, viewed as
-subsets of the finite set of triangles, one of maximum cardinality exists
-and is maximal). -/
+/-- Removing the vertices covered by a maximal packing leaves a
+triangle-free induced subgraph: any triangle there would lift to a
+triangle of `G` disjoint from every packing triangle, contradicting
+maximality. -/
+theorem induce_compl_cliqueFree (P : TrianglePacking G) (hmax : P.IsMaximal) :
+    (G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).CliqueFree 3 := by
+  classical
+  intro t ht
+  -- Lift t to a Finset of V via the subtype embedding
+  let lift : Finset V := t.map (Function.Embedding.subtype
+    (fun x => x ∈ ((↑(coveredVerts P.tris) : Set V)ᶜ)))
+  have htG : G.IsNClique 3 lift :=
+    (SimpleGraph.isNClique_induce_iff (s := ((↑(coveredVerts P.tris) : Set V)ᶜ)) t 3).mp ht
+  obtain ⟨t', ht'mem, hnd⟩ := hmax lift (G.mem_cliqueFinset_iff.mpr htG)
+  -- Every x ∈ lift avoids coveredVerts; every y ∈ t' lies in coveredVerts
+  have hsep : Disjoint lift t' := by
+    rw [Finset.disjoint_right]
+    intro y hyt' hx
+    have hycovered : y ∈ coveredVerts P.tris :=
+      mem_coveredVerts.mpr ⟨t', ht'mem, hyt'⟩
+    obtain ⟨z, hz, hzy⟩ := Finset.mem_map.mp hx
+    have hzc : (z : V) ∈ coveredVerts P.tris := by
+      have hcoe : (z : V) = y := hzy
+      rw [hcoe]; exact hycovered
+    have hcompl : (z : V) ∈ ((↑(coveredVerts P.tris) : Set V)ᶜ) := z.property
+    exact hcompl (Finset.mem_coe.mpr hzc)
+  exact hnd hsep
+
 theorem exists_maximal_trianglePacking :
     ∃ P : TrianglePacking G, P.IsMaximal := by
   classical
