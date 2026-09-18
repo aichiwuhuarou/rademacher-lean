@@ -104,25 +104,63 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   -- Step 4: pair with ≥ n/18 common neighbors.
   sorry
 
-/-- **Pair pigeonhole.** If a triangle {a,b,c} has degree-sum exceeding
-`n + n/18 + 2`, then some edge of it has book size ≥ n/18.
+/-- **Common neighborhood lower bound** (inclusion-exclusion).
+For any two vertices a, b: `|N(a) ∩ N(b)| ≥ d(a) + d(b) - n`. -/
+lemma commonNeighbors_lower (a b : V) :
+    G.degree a + G.degree b - Fintype.card V ≤
+      (G.neighborFinset a ∩ G.neighborFinset b).card := by
+  classical
+  have hle : (G.neighborFinset a ∪ G.neighborFinset b).card ≤ Fintype.card V :=
+    Finset.card_le_card (Finset.subset_univ _)
+  have hex : (G.neighborFinset a ∪ G.neighborFinset b).card +
+      (G.neighborFinset a ∩ G.neighborFinset b).card =
+      (G.neighborFinset a).card + (G.neighborFinset b).card := by
+    rw [Finset.card_union_add_card_inter]
+  rw [G.card_neighborFinset_eq_degree, G.card_neighborFinset_eq_degree] at hex
+  omega
 
-Mathematical content: for adjacent a,b, every common neighbor of a and b
-(other than a,b themselves) forms a triangle with edge a—b, so
-bookSize G a b = |N(a) ∩ N(b)| - (contributions of a,b if adjacent...).
-By inclusion-exclusion:
-  |N(a)∩N(b)| + |N(b)∩N(c)| + |N(c)∩N(a)| ≥ d(a)+d(b)+d(c) - n - 3
-so if d(a)+d(b)+d(c) > n + n/18 + 3 then some pair has
-|N(x)∩N(y)| > n/18 / 3 · ... (pigeonhole among 3 pairs). -/
+/-- Book size equals the common neighborhood cardinality. -/
+lemma bookSize_eq_commonNeighbors (a b : V) :
+    bookSize G a b = (G.neighborFinset a ∩ G.neighborFinset b).card := by
+  classical
+  apply le_antisymm
+  · apply Finset.card_le_card
+    intro v hv
+    rw [Finset.mem_filter] at hv
+    rw [Finset.mem_inter, G.mem_neighborFinset, G.mem_neighborFinset]
+    exact ⟨hv.2.1, hv.2.2.1⟩
+  · apply Finset.card_le_card
+    intro v hv
+    rw [Finset.mem_inter, G.mem_neighborFinset, G.mem_neighborFinset] at hv
+    rw [Finset.mem_filter]
+    refine ⟨Finset.mem_univ v, hv.1, hv.2, ?_, ?_⟩
+    · intro h
+      subst h
+      exact SimpleGraph.Adj.ne hv.1 rfl
+    · intro h
+      subst h
+      exact SimpleGraph.Adj.ne hv.2 rfl
+
+/-- **Pair pigeonhole.** If a triangle {a,b,c} has degree-sum exceeding
+`2n + n/18 + 6`, then some edge of it has book size ≥ n/18. -/
 theorem pair_pigeonhole (a b c : V) (hab : G.Adj a b) (hbc : G.Adj b c)
-    (hca : G.Adj c a) (n : ℕ) (hn : n + n/18 + 6 ≤ G.degree a + G.degree b + G.degree c)
+    (hca : G.Adj c a) (n : ℕ) (hn : 2*n + n/18 + 6 ≤ G.degree a + G.degree b + G.degree c)
     (hcard : Fintype.card V = n) :
     ∃ x y : V, G.Adj x y ∧ n / 18 ≤ bookSize G x y := by
-  -- Common neighborhood inclusion-exclusion:
-  -- |N(a)∩N(b)| ≥ d(a) + d(b) - n, etc.
-  -- Sum: Σ|N(x)∩N(y)| ≥ (d(a)+d(b)+d(c))·2 - 3n ≥ 2(n + n/18 + 6) - 3n
-  -- But we need each |N(x)∩N(y)| properly counts book size.
-  sorry
+  classical
+  by_contra hcon
+  push_neg at hcon
+  have e1 : bookSize G a b < n / 18 := hcon a b hab
+  have e2 : bookSize G b c < n / 18 := hcon b c hbc
+  have e3 : bookSize G c a < n / 18 := hcon c a hca
+  have h1 := commonNeighbors_lower G a b
+  have h2 := commonNeighbors_lower G b c
+  have h3 := commonNeighbors_lower G c a
+  rw [hcard, ← bookSize_eq_commonNeighbors G a b] at h1
+  rw [hcard, ← bookSize_eq_commonNeighbors G b c] at h2
+  rw [hcard, ← bookSize_eq_commonNeighbors G c a] at h3
+  -- omega handles the division arithmetic (3(n/18) ≤ n etc.) internally
+  omega
 
 /-- **Relative book lemma** (statement; proof in progress). -/
 theorem relative_book (δ : ℝ) (hδ : 0 < δ) (hδ' : δ < 1)
