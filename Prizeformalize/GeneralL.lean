@@ -463,6 +463,43 @@ theorem edge_split_count (P : TrianglePacking G) :
     have hmemE : e ∈ G.edgeFinset := he.1
     have hmemI : e ∈ G.incidenceSet v := ⟨G.mem_edgeFinset.mp hmemE, hv⟩
     exact Finset.mem_biUnion.mpr ⟨v, hvw, (G.mem_incidenceFinset v e).2 hmemI⟩
-  sorry
+  -- Final assembly with the correct second-part shape (filter-not, not sdiff):
+  -- card G.E = card Eavoid + card filter-not
+  --   ≤ card Eavoid + Σ d(w)
+  -- and Eavoid injects into induced edges.
+  -- Step 1: filter-not ⊆ E \ Eavoid, so its card ≤ union bound as proved.
+  have hfnsub : (G.edgeFinset.filter (fun e => ¬ ∀ v, v ∈ e → v ∉ W)) ⊆ (G.edgeFinset \ Eavoid) := by
+    intro e he
+    have h1 : e ∈ G.edgeFinset := (Finset.mem_filter.mp he).1
+    have h2 : e ∉ Eavoid := by
+      intro hm
+      rw [hEa, Finset.mem_filter] at hm
+      exact (Finset.mem_filter.mp he).2 hm.2
+    exact Finset.mem_sdiff.mpr ⟨h1, h2⟩
+  have hfnbound : (G.edgeFinset.filter (fun e => ¬ ∀ v, v ∈ e → v ∉ W)).card ≤
+      ∑ w ∈ W, G.degree w := by
+    have h1 : (G.edgeFinset.filter (fun e => ¬ ∀ v, v ∈ e → v ∉ W)).card ≤
+        (G.edgeFinset \ Eavoid).card := Finset.card_le_card hfnsub
+    have h2 : (G.edgeFinset \ Eavoid).card ≤
+        (W.biUnion (fun w => G.incidenceFinset w)).card := Finset.card_le_card htouch
+    have h3 : (W.biUnion (fun w => G.incidenceFinset w)).card ≤
+        ∑ w ∈ W, (G.incidenceFinset w).card := Finset.card_biUnion_le
+    have h4 : ∑ w ∈ W, (G.incidenceFinset w).card = ∑ w ∈ W, G.degree w :=
+      Finset.sum_congr rfl (fun w _ => G.card_incidenceFinset_eq_degree w)
+    omega
+  -- Step 2: Eavoid → induced edges (card bound via image injection)
+  have himg : Eavoid.card ≤
+      ((G.induce ((↑W : Set V)ᶜ)).edgeFinset).card := by
+    classical
+    -- image under Sym2.map Subtype.val is injective on Eavoid; the image ⊆ induced edges
+    have hinj : ∀ e ∈ Eavoid,
+        ((e.out.1 ∈ ((↑W : Set V)ᶜ : Set V)) ∧ (e.out.2 ∈ ((↑W : Set V)ᶜ : Set V))) := by
+      intro e he
+      rw [hEa, Finset.mem_filter] at he
+      refine ⟨?_, ?_⟩
+      · exact he.2 e.out.1 (Sym2.out_fst_mem e)
+      · exact he.2 e.out.2 (Sym2.out_snd_mem e)
+    sorry
+  omega
 
 end Rad
