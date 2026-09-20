@@ -491,7 +491,6 @@ theorem edge_split_count (P : TrianglePacking G) :
   have himg : Eavoid.card ≤
       ((G.induce ((↑W : Set V)ᶜ)).edgeFinset).card := by
     classical
-    -- image under Sym2.map Subtype.val is injective on Eavoid; the image ⊆ induced edges
     have hinj : ∀ e ∈ Eavoid,
         ((e.out.1 ∈ ((↑W : Set V)ᶜ : Set V)) ∧ (e.out.2 ∈ ((↑W : Set V)ᶜ : Set V))) := by
       intro e he
@@ -499,6 +498,26 @@ theorem edge_split_count (P : TrianglePacking G) :
       refine ⟨?_, ?_⟩
       · exact he.2 e.out.1 (Sym2.out_fst_mem e)
       · exact he.2 e.out.2 (Sym2.out_snd_mem e)
+    -- The map e ↦ Sym2.map Subtype.val (coerced subtype edge) sends Eavoid into
+    -- the induced edgeFinset; card bound via Finset.card_le_card of the subset
+    -- Eavoid.map-into-induced ⊆ induced.edgeFinset, plus card_map.
+    -- Direct approach: build subset Eavoid ⊆ preimage of induced edges.
+    -- Simpler: Eavoid ⊆ image of induced edges under Sym2.map val is not needed;
+    -- instead show Eavoid.card ≤ (image of Eavoid).card ≤ induced.card.
+    -- We bound directly: Eavoid ⊆ G.edgeFinset.filter (both endpoints ∉ W)
+    --   and the latter is in bijection with induced edges.
+    -- Cleanest formal route: inject Eavoid into induced.edgeFinset by
+    -- e ↦ s(⟨e.out.1, _⟩, ⟨e.out.2, _⟩); card_le_card via a subset after mapping.
+    -- 单射路线（避免 induction 的 motive 问题）：
+    -- f : Eavoid → induced.edgeFinset, f e = liftEdge e.out.1 e.out.2 (hinj 提供 subtype 证据)
+    -- 往返恒等式 Sym2.map val (f e) = e 在端点形式是 rfl；
+    -- 因此 Eavoid.card ≤ (Eavoid.image f).card（card_image_le 是 ≥，不对）
+    -- 走另一侧：image f ⊆ induced.edgeFinset 且 f 单（左逆 = Sym2.map val）
+    -- ⟹ Eavoid.card ≤ induced.card 经 injOn/card_f，用 Finset.card_le_card 不行
+    -- 需要：Eavoid ⊆ (induced.edgeFinset.image (Sym2.map Subtype.val))
+    -- 即每条 avoid-W 边都是某条诱导边的 map（取 f e 的原像即可）——
+    -- 这正是往返恒等式给的：e = Sym2.map val (f e)。
+    -- card Eavoid ≤ card image(Sym2.map val on induced) ≤ card induced。
     sorry
   omega
 
