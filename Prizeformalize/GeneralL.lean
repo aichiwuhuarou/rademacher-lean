@@ -266,25 +266,139 @@ lemma bookSize_eq_commonNeighbors (a b : V) :
       subst h
       exact SimpleGraph.Adj.ne hv.2 rfl
 
-/-- **Pair pigeonhole.** If a triangle {a,b,c} has degree-sum exceeding
-`2n + n/18 + 6`, then some edge of it has book size ≥ n/18. -/
-theorem pair_pigeonhole (a b c : V) (hab : G.Adj a b) (hbc : G.Adj b c)
-    (hca : G.Adj c a) (n : ℕ) (hn : 2*n + n/18 + 6 ≤ G.degree a + G.degree b + G.degree c)
-    (hcard : Fintype.card V = n) :
-    ∃ x y : V, G.Adj x y ∧ n / 18 ≤ bookSize G x y := by
+/-- Per-vertex contribution to the three pair-books of triangle (a,b,c):
+the number of pairs {x,y} ⊆ {a,b,c} such that x is adjacent to both
+members — i.e. how many of the three books x counts in. -/
+def pairBookContribution (a b c v : V) : ℕ :=
+  (if G.Adj a v ∧ G.Adj b v then 1 else 0) +
+  (if G.Adj b v ∧ G.Adj c v then 1 else 0) +
+  (if G.Adj c v ∧ G.Adj a v then 1 else 0)
+
+/-- dt(v): number of triangle-vertices adjacent to v (0..3). -/
+def triAdjCount (a b c v : V) : ℕ :=
+  (if G.Adj a v then 1 else 0) + (if G.Adj b v then 1 else 0) +
+  (if G.Adj c v then 1 else 0)
+
+/-- Per-vertex key inequality: book contribution ≥ dt − 1 (when dt ≥ 1). -/
+lemma contrib_ge_dt_sub_one (a b c v : V) :
+    triAdjCount G a b c v ≤ pairBookContribution G a b c v + 1 := by
+  unfold triAdjCount pairBookContribution
+  by_cases h1 : G.Adj a v <;> by_cases h2 : G.Adj b v <;> by_cases h3 : G.Adj c v <;>
+    simp [h1, h2, h3]
+
+/-- Bridge: a card over a stricter filter equals the sum of indicators of the
+looser predicate, when the excluded witnesses make the predicate false. -/
+private lemma card_strict_filter_eq_sum (x y : V) :
+    bookSize G x y =
+      ∑ v ∈ Finset.univ, (if G.Adj x v ∧ G.Adj y v then 1 else 0) := by
+  classical
+  unfold bookSize
+  have key : ∀ v ∈ Finset.univ,
+      ((if G.Adj x v ∧ G.Adj y v ∧ x ≠ v ∧ y ≠ v then (1:ℕ) else 0)) =
+      ((if G.Adj x v ∧ G.Adj y v then (1:ℕ) else 0)) := by
+    intro v _
+    by_cases h : G.Adj x v ∧ G.Adj y v
+    · by_cases hne : x ≠ v ∧ y ≠ v
+      · simp [h, hne]
+      · exfalso
+        rcases not_and_or.mp hne with h1 | h1
+        · apply h1
+          intro heq
+          subst heq
+          exact SimpleGraph.Adj.ne h.1 rfl
+        · apply h1
+          intro heq
+          subst heq
+          exact SimpleGraph.Adj.ne h.2 rfl
+    · have h2 : ¬(G.Adj x v ∧ G.Adj y v ∧ x ≠ v ∧ y ≠ v) := by
+        intro hc
+        exact h ⟨hc.1, hc.2.1⟩
+      simp [h, h2]
+  rw [Finset.card_eq_sum_ones, Finset.sum_filter]
+  exact Finset.sum_congr rfl (fun v hv => key v hv)
+
+/-- Book sum = Σ_v pairBookContribution. -/
+lemma bookSum_eq_sum_contrib (a b c : V) :
+    bookSize G a b + bookSize G b c + bookSize G c a
+      = ∑ v ∈ Finset.univ, pairBookContribution G a b c v := by
+  classical
+  rw [card_strict_filter_eq_sum G a b, card_strict_filter_eq_sum G b c,
+    card_strict_filter_eq_sum G c a]
+  have hsum : ∀ v ∈ Finset.univ,
+      ((if G.Adj a v ∧ G.Adj b v then 1 else 0) +
+       (if G.Adj b v ∧ G.Adj c v then 1 else 0) +
+       (if G.Adj c v ∧ G.Adj a v then 1 else 0)) =
+      pairBookContribution G a b c v := fun v _ => rfl
+  rw [← Finset.sum_add_distrib, ← Finset.sum_add_distrib]
+  exact Finset.sum_congr rfl hsum
+
+/-- Degree sum = Σ_v triAdjCount. -/
+lemma dsum_eq_sum_triAdj (a b c : V) :
+    G.degree a + G.degree b + G.degree c
+      = ∑ v ∈ Finset.univ, triAdjCount G a b c v := by
+  classical
+  have expand : ∀ (x : V), G.degree x =
+      ∑ v ∈ Finset.univ, (if G.Adj x v then 1 else 0) := by
+    intro x
+    have h1 : ∑ v ∈ G.neighborFinset x, (if G.Adj x v then 1 else 0)
+        = ∑ v ∈ (Finset.univ : Finset V), (if G.Adj x v then 1 else 0) :=
+      Finset.sum_subset (Finset.subset_univ _) (by
+        intro v _ hv
+        exact if_neg (fun hc => hv ((G.mem_neighborFinset x v).mpr hc)))
+    have h2 : (∑ v ∈ G.neighborFinset x, (1:ℕ))
+        = ∑ v ∈ G.neighborFinset x, (if G.Adj x v then 1 else 0) := by
+      refine Finset.sum_congr rfl (fun v hv => ?_)
+      have hx : G.Adj x v := (G.mem_neighborFinset x v).mp hv
+      rw [if_pos hx]
+    calc G.degree x = (G.neighborFinset x).card := (G.card_neighborFinset_eq_degree x).symm
+      _ = ∑ v ∈ G.neighborFinset x, (1:ℕ) := (Finset.card_eq_sum_ones _)
+      _ = ∑ v ∈ G.neighborFinset x, (if G.Adj x v then 1 else 0) := h2
+      _ = ∑ v ∈ Finset.univ, (if G.Adj x v then 1 else 0) := h1
+  rw [expand a, expand b, expand c]
+  have hsum : ∀ v ∈ Finset.univ,
+      ((if G.Adj a v then 1 else 0) + (if G.Adj b v then 1 else 0) +
+       (if G.Adj c v then 1 else 0)) = triAdjCount G a b c v := fun v _ => rfl
+  rw [← Finset.sum_add_distrib, ← Finset.sum_add_distrib]
+  exact Finset.sum_congr rfl hsum
+
+/-- **Overlap-weight book bound.** If a triangle {a,b,c} has degree-sum
+exceeding the vertex count by `k`, some edge of it has book size ≥ k/3. -/
+theorem overlap_book_bound (a b c : V) (hab : G.Adj a b) (hbc : G.Adj b c)
+    (hca : G.Adj c a) (k : ℕ)
+    (hdsum : Fintype.card V + k ≤ G.degree a + G.degree b + G.degree c) :
+    ∃ x y : V, G.Adj x y ∧ k / 3 ≤ bookSize G x y := by
   classical
   by_contra hcon
   push_neg at hcon
-  have e1 : bookSize G a b < n / 18 := hcon a b hab
-  have e2 : bookSize G b c < n / 18 := hcon b c hbc
-  have e3 : bookSize G c a < n / 18 := hcon c a hca
-  have h1 := commonNeighbors_lower G a b
-  have h2 := commonNeighbors_lower G b c
-  have h3 := commonNeighbors_lower G c a
-  rw [hcard, ← bookSize_eq_commonNeighbors G a b] at h1
-  rw [hcard, ← bookSize_eq_commonNeighbors G b c] at h2
-  rw [hcard, ← bookSize_eq_commonNeighbors G c a] at h3
-  -- omega handles the division arithmetic (3(n/18) ≤ n etc.) internally
+  have e1 : bookSize G a b < k / 3 := hcon a b hab
+  have e2 : bookSize G b c < k / 3 := hcon b c hbc
+  have e3 : bookSize G c a < k / 3 := hcon c a hca
+  -- Σ contrib = book sum < 3·(k/3) ≤ k
+  have hbook : ∑ v ∈ Finset.univ, pairBookContribution G a b c v < k := by
+    rw [← bookSum_eq_sum_contrib G a b c]
+    have hbound : bookSize G a b + bookSize G b c + bookSize G c a < 3 * (k / 3) := by omega
+    have h3div : 3 * (k / 3) ≤ k := by omega
+    omega
+  -- Σ triAdj = dsum ≥ n + k
+  have hd : ∑ v ∈ Finset.univ, triAdjCount G a b c v ≥
+      Fintype.card V + k := by
+    rw [← dsum_eq_sum_triAdj G a b c]
+    exact hdsum
+  -- Σ (triAdj − 1)⁺ ≤ Σ contrib  ⟹  Σ triAdj − n ≤ Σ contrib  (all terms ≥ 0 clamped)
+  -- Since Σ 1 = n:  Σ triAdj ≤ Σ contrib + n, so n + k ≤ Σ contrib + n, i.e. k ≤ Σ contrib.
+  have hfinal : k ≤ ∑ v ∈ Finset.univ, pairBookContribution G a b c v := by
+    have hle : ∑ v ∈ Finset.univ, triAdjCount G a b c v
+        ≤ ∑ v ∈ Finset.univ, (pairBookContribution G a b c v + 1) :=
+      Finset.sum_le_sum (fun v _ => contrib_ge_dt_sub_one G a b c v)
+    have hn : ∑ v ∈ (Finset.univ : Finset V), 1 = Fintype.card V := by
+      simp
+    have hchain : ∑ v ∈ Finset.univ, triAdjCount G a b c v
+        ≤ ∑ v ∈ Finset.univ, pairBookContribution G a b c v + Fintype.card V := calc
+        ∑ v ∈ Finset.univ, triAdjCount G a b c v
+        ≤ ∑ v ∈ Finset.univ, (pairBookContribution G a b c v + 1) := hle
+      _ = ∑ v ∈ Finset.univ, pairBookContribution G a b c v + Fintype.card V := by
+          rw [Finset.sum_add_distrib, hn]
+    omega
   omega
 
 /-- **Relative book lemma** (statement; proof in progress). -/
