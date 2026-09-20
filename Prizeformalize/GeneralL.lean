@@ -222,36 +222,6 @@ lemma commonNeighbors_lower (a b : V) :
   omega
 
 
-/-- **Linear book lemma.** A graph on `n` vertices with more than `⌊n²/4⌋` edges
-contains an edge lying in at least `⌊n/18⌋` triangles.
-
-Complete proof (Erdős 1962, Lemma 2):
-1. Take a maximal vertex-disjoint triangle packing P = {t₁,…,t_r} (exists by finiteness).
-2. The uncovered part G' = G − coveredVerts(P) is triangle-free (maximality),
-   so e(G') ≤ ⌊m²/4⌋ where m = n − 3r (Mantel).
-3. e(G) ≤ Σᵢ Σ_{v ∈ tᵢ} d(v) + e(G')   (each edge counted once: edges touching
-   a covered vertex are bounded by the degree-sum; uncovered edges are in G').
-4. By contradiction: if every edge has book < n/18, then every triangle has
-   degree-sum < n + 3·(n/18) + 3 (else overlap_book_bound gives book ≥ n/18).
-   With overlap_book_bound: dsum ≥ n + k → book ≥ k/3; contrapositive:
-   book < n/18 → dsum < n + 3·(n/18) + 3.
-5. Chaining: e(G) ≤ r·(n + n/6 + 3) + ⌊(n−3r)²/4⌋
-   = r·n·(7/6) + 3r + n²/4 − 3rn/2 + O(r²)
-   For r ≥ 1 and n large: ≤ n²/4 + r·n·(7/6 − 3/2) + … = n²/4 − r·n/3 + … < n²/4 + 1.
-   Contradiction with e(G) > ⌊n²/4⌋.
-The constant arithmetic is handled by `omega` after division lemmas. -/
-theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
-    ∃ a b : V, G.Adj a b ∧ Fintype.card V / 18 ≤ bookSize G a b := by
-  classical
-  set n := Fintype.card V with hn
-  by_contra hcon
-  push_neg at hcon
-  -- hcon : ∀ a b, G.Adj a b → bookSize G a b < n / 18
-  obtain ⟨P, hmax⟩ := exists_maximal_trianglePacking G
-  -- The uncovered part is triangle-free
-  have hcf := induce_compl_cliqueFree G P hmax
-  sorry
-
 /-- Book size equals the common neighborhood cardinality. -/
 lemma bookSize_eq_commonNeighbors (a b : V) :
     bookSize G a b = (G.neighborFinset a ∩ G.neighborFinset b).card := by
@@ -550,5 +520,45 @@ theorem edge_split_count (P : TrianglePacking G) :
       _ ≤ ((G.induce S).edgeFinset).card :=
           Finset.card_image_le
   omega
+
+/-- **Linear book lemma.** A graph on `n` vertices with more than `⌊n²/4⌋` edges
+contains an edge lying in at least `⌊n/18⌋` triangles.
+
+Complete proof (Erdős 1962, Lemma 2):
+1. Take a maximal vertex-disjoint triangle packing P = {t₁,…,t_r} (exists by finiteness).
+2. The uncovered part G' = G − coveredVerts(P) is triangle-free (maximality),
+   so e(G') ≤ ⌊m²/4⌋ where m = n − 3r (Mantel).
+3. e(G) ≤ Σᵢ Σ_{v ∈ tᵢ} d(v) + e(G')   (each edge counted once: edges touching
+   a covered vertex are bounded by the degree-sum; uncovered edges are in G').
+4. By contradiction: if every edge has book < n/18, then every triangle has
+   degree-sum < n + 3·(n/18) + 3 (else overlap_book_bound gives book ≥ n/18).
+   With overlap_book_bound: dsum ≥ n + k → book ≥ k/3; contrapositive:
+   book < n/18 → dsum < n + 3·(n/18) + 3.
+5. Chaining: e(G) ≤ r·(n + n/6 + 3) + ⌊(n−3r)²/4⌋
+   = r·n·(7/6) + 3r + n²/4 − 3rn/2 + O(r²)
+   For r ≥ 1 and n large: ≤ n²/4 + r·n·(7/6 − 3/2) + … = n²/4 − r·n/3 + … < n²/4 + 1.
+   Contradiction with e(G) > ⌊n²/4⌋.
+The constant arithmetic is handled by `omega` after division lemmas. -/
+theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
+    ∃ a b : V, G.Adj a b ∧ Fintype.card V / 18 ≤ bookSize G a b := by
+  classical
+  set n := Fintype.card V with hn
+  by_contra hcon
+  push_neg at hcon
+  -- hcon : ∀ a b, G.Adj a b → bookSize G a b < n / 18
+  obtain ⟨P, hmax⟩ := exists_maximal_trianglePacking G
+  -- The uncovered part is triangle-free; Mantel bounds its edge count.
+  have hcf := induce_compl_cliqueFree G P hmax
+  -- Edge split: e(G) ≤ Σ_{w ∈ W} d(w) + e(G[Wᶜ])
+  have hsplit := edge_split_count G P
+  -- Mantel on the uncovered part: e(G[Wᶜ]) ≤ ⌊m²/4⌋ where m = n − 3r
+  set r := P.tris.length with hrdef
+  -- W is the disjoint union of the r triangles; degree sum decomposes:
+  -- Σ_{w∈W} d(w) = Σᵢ Σ_{v ∈ tᵢ} d(v); each triangle has 3 vertices.
+  -- Contrapositive of overlap_book_bound: if every triangle's degree-sum is
+  -- < n + k then all books < k/3 — with k := n/6 + 3, hcon caps each triangle:
+  -- Σ_{v∈t} d(v) ≤ n + n/6 + 3 (else overlap gives book ≥ n/18, contradiction).
+  sorry
+
 
 end Rad
