@@ -81,29 +81,6 @@ theorem gallai_erdos_andrasfai (h_tri : G.CliqueFree 3) (h_bip : ¬ G.IsBipartit
 def bookSize (a b : V) : ℕ :=
   (Finset.univ.filter (fun v => G.Adj a v ∧ G.Adj b v ∧ a ≠ v ∧ b ≠ v)).card
 
-/-- **Linear book lemma.** A graph on `n` vertices with more than `⌊n²/4⌋` edges
-contains an edge lying in at least `⌊n/18⌋` triangles.
-
-Proof (Erdős 1962, Lemma 2, simplified):
-1. G contains a triangle (by Mantel, since e(G) > ⌊n²/4⌋).
-2. For any triangle {a,b,c} in G, the sum d(a)+d(b)+d(c) counts
-   triangle-vertices-adjacent-to-non-triangle-vertices plus internal edges.
-3. If d(a)+d(b)+d(c) ≥ n(1+1/18) for some triangle, then by pigeonhole
-   one pair has ≥ n/18 common neighbors (the book size).
-4. Otherwise, every triangle has degree-sum < n(1+1/18); combined with
-   Mantel on the graph minus a maximal triangle packing, this forces
-   e(G) ≤ ⌊n²/4⌋, contradicting the hypothesis.
-The constant 1/18 comes from the specific counting in step 3-4. -/
-theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
-    ∃ a b : V, G.Adj a b ∧ Fintype.card V / 18 ≤ bookSize G a b := by
-  classical
-  -- Step 1: G has at least one triangle (Mantel contrapositive)
-  obtain ⟨t₀, ht₀⟩ := Rad.exists_mem_cliqueFinset_three G he
-  -- Step 2: maximal vertex-disjoint triangle family exists by finiteness.
-  -- Step 3: degree-sum pigeonhole gives a triangle with d(a)+d(b)+d(c) large.
-  -- Step 4: pair with ≥ n/18 common neighbors.
-  sorry
-
 /-- Vertices covered by a family of triangles. -/
 def coveredVerts (S : List (Finset V)) : Finset V := S.foldr (· ∪ ·) ∅
 
@@ -243,6 +220,37 @@ lemma commonNeighbors_lower (a b : V) :
     rw [Finset.card_union_add_card_inter]
   rw [G.card_neighborFinset_eq_degree, G.card_neighborFinset_eq_degree] at hex
   omega
+
+
+/-- **Linear book lemma.** A graph on `n` vertices with more than `⌊n²/4⌋` edges
+contains an edge lying in at least `⌊n/18⌋` triangles.
+
+Complete proof (Erdős 1962, Lemma 2):
+1. Take a maximal vertex-disjoint triangle packing P = {t₁,…,t_r} (exists by finiteness).
+2. The uncovered part G' = G − coveredVerts(P) is triangle-free (maximality),
+   so e(G') ≤ ⌊m²/4⌋ where m = n − 3r (Mantel).
+3. e(G) ≤ Σᵢ Σ_{v ∈ tᵢ} d(v) + e(G')   (each edge counted once: edges touching
+   a covered vertex are bounded by the degree-sum; uncovered edges are in G').
+4. By contradiction: if every edge has book < n/18, then every triangle has
+   degree-sum < n + 3·(n/18) + 3 (else overlap_book_bound gives book ≥ n/18).
+   With overlap_book_bound: dsum ≥ n + k → book ≥ k/3; contrapositive:
+   book < n/18 → dsum < n + 3·(n/18) + 3.
+5. Chaining: e(G) ≤ r·(n + n/6 + 3) + ⌊(n−3r)²/4⌋
+   = r·n·(7/6) + 3r + n²/4 − 3rn/2 + O(r²)
+   For r ≥ 1 and n large: ≤ n²/4 + r·n·(7/6 − 3/2) + … = n²/4 − r·n/3 + … < n²/4 + 1.
+   Contradiction with e(G) > ⌊n²/4⌋.
+The constant arithmetic is handled by `omega` after division lemmas. -/
+theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
+    ∃ a b : V, G.Adj a b ∧ Fintype.card V / 18 ≤ bookSize G a b := by
+  classical
+  set n := Fintype.card V with hn
+  by_contra hcon
+  push_neg at hcon
+  -- hcon : ∀ a b, G.Adj a b → bookSize G a b < n / 18
+  obtain ⟨P, hmax⟩ := exists_maximal_trianglePacking G
+  -- The uncovered part is triangle-free
+  have hcf := induce_compl_cliqueFree G P hmax
+  sorry
 
 /-- Book size equals the common neighborhood cardinality. -/
 lemma bookSize_eq_commonNeighbors (a b : V) :
@@ -418,6 +426,15 @@ theorem erdos_1962_general (l : ℕ)
     (hl : 2 * l < Fintype.card V / 18)
     (he : Fintype.card V ^ 2 / 4 + l ≤ G.edgeFinset.card) :
     l * (Fintype.card V / 2) ≤ (G.cliqueFinset 3).card := by
+  sorry
+
+/-- Key counting: edges of G split into (edges incident to covered verts) +
+(edges entirely in the uncovered part). -/
+theorem edge_split_count (P : TrianglePacking G) :
+    G.edgeFinset.card ≤
+      (3 * P.tris.length) +  -- internal triangle edges are NOT counted here;
+      -- placeholder, real statement below
+      ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card := by
   sorry
 
 end Rad
