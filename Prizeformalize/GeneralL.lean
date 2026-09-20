@@ -521,14 +521,34 @@ theorem edge_split_count (P : TrianglePacking G) :
       intro e he
       rw [hEa, Finset.mem_filter] at he
       obtain ⟨hmemE, havoid⟩ := he
-      -- G.Adj out.1 out.2 from edge membership
       have hAdj : G.Adj e.out.1 e.out.2 := by
         rw [← e.out_eq] at hmemE
         have := G.mem_edgeFinset.mp hmemE
         exact this
-      sorry
-    -- image subset + card chain
-    sorry
+      -- subtype endpoints
+      have h1 : e.out.1 ∈ S := havoid e.out.1 (Sym2.out_fst_mem e)
+      have h2 : e.out.2 ∈ S := havoid e.out.2 (Sym2.out_snd_mem e)
+      refine ⟨s(⟨e.out.1, h1⟩, ⟨e.out.2, h2⟩), ⟨?_, ?_⟩⟩
+      · -- subtype edge is in the induced graph's edgeFinset (Adj inherits definitionally)
+        exact (G.induce S).mem_edgeFinset.mpr (by
+          have hinds : (G.induce S).Adj ⟨e.out.1, h1⟩ ⟨e.out.2, h2⟩ := hAdj
+          exact hinds)
+      · -- roundtrip: 先 simp 展开 map_mk，再 conv 只改 RHS
+        show Sym2.map (Subtype.val : {x // x ∈ S} → V)
+            (s(⟨e.out.1, h1⟩, ⟨e.out.2, h2⟩)) = e
+        simp only [Sym2.map_mk]
+        exact e.out_eq
+    -- card chain: Eavoid ⊆ image (Sym2.map val) on induced.edgeFinset
+    have hsub : Eavoid ⊆ ((G.induce S).edgeFinset).image
+        (Sym2.map (Subtype.val : {x // x ∈ S} → V)) := by
+      intro e he
+      obtain ⟨f, hf1, hround⟩ := hfmem e he
+      exact Finset.mem_image.mpr ⟨f, hf1, hround⟩
+    calc Eavoid.card ≤ (((G.induce S).edgeFinset).image
+          (Sym2.map (Subtype.val : {x // x ∈ S} → V))).card :=
+          Finset.card_le_card hsub
+      _ ≤ ((G.induce S).edgeFinset).card :=
+          Finset.card_image_le
   omega
 
 end Rad
