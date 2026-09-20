@@ -428,13 +428,28 @@ theorem erdos_1962_general (l : ℕ)
     l * (Fintype.card V / 2) ≤ (G.cliqueFinset 3).card := by
   sorry
 
-/-- Key counting: edges of G split into (edges incident to covered verts) +
-(edges entirely in the uncovered part). -/
+/-- Key counting: every edge of G either meets the covered vertices W, or lies
+entirely in the uncovered part. Edges meeting W inject into
+W × V (endpoint in W, other endpoint) — actually ≤ Σ_{w ∈ W} d(w) via
+incidence counting. For the final assembly we use the sharper form:
+e(G) ≤ Σ_{w ∈ W} d(w) + e(G[Wᶜ]).
+
+Here W = coveredVerts of the packing, and Σ_{w∈W} d(w) is bounded because W is
+a disjoint union of the r triangle vertex-sets, each contributing its
+three degrees. -/
 theorem edge_split_count (P : TrianglePacking G) :
     G.edgeFinset.card ≤
-      (3 * P.tris.length) +  -- internal triangle edges are NOT counted here;
-      -- placeholder, real statement below
+      (∑ v ∈ coveredVerts P.tris, G.degree v) +
       ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card := by
+  classical
+  set W := coveredVerts P.tris with hWdef
+  -- Two disjoint edge classes:
+  --   E₁ = edges with at least one endpoint in W  (upper: ⊆ ⋃_{w∈W} incidenceFinset w)
+  --   E₂ = edges with both endpoints in Wᶜ          (= induced G[Wᶜ] edges)
+  -- e(G) = |E₁| + |E₂| (partition), |E₁| ≤ Σ_{w∈W} d(w) (union bound),
+  -- |E₂| = |G[Wᶜ].edgeFinset|.
+  -- Implement: e(G) ≤ |E₁ ⊔ E₂| via card_union_le, then bound each part.
+  -- E₂ direction first: G[Wᶜ].edgeFinset ⊆ E₂ map (Sym2.map Subtype.val)
   sorry
 
 end Rad
