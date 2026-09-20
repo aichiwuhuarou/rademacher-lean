@@ -443,13 +443,26 @@ theorem edge_split_count (P : TrianglePacking G) :
       ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card := by
   classical
   set W := coveredVerts P.tris with hWdef
-  -- Two disjoint edge classes:
-  --   E₁ = edges with at least one endpoint in W  (upper: ⊆ ⋃_{w∈W} incidenceFinset w)
-  --   E₂ = edges with both endpoints in Wᶜ          (= induced G[Wᶜ] edges)
-  -- e(G) = |E₁| + |E₂| (partition), |E₁| ≤ Σ_{w∈W} d(w) (union bound),
-  -- |E₂| = |G[Wᶜ].edgeFinset|.
-  -- Implement: e(G) ≤ |E₁ ⊔ E₂| via card_union_le, then bound each part.
-  -- E₂ direction first: G[Wᶜ].edgeFinset ⊆ E₂ map (Sym2.map Subtype.val)
+  -- Partition: E = Eavoid ⊔ (E \ Eavoid) via filter_add_filter_not.
+  -- Touch-W edges ⊆ ⋃_{w∈W} incidence w (union bound → Σ d(w)).
+  -- Avoid-W edges inject into induced subgraph edges (≤ suffices).
+  set Eavoid := G.edgeFinset.filter (fun e => ∀ v, v ∈ e → v ∉ W) with hEa
+  have hcard : G.edgeFinset.card = Eavoid.card + (G.edgeFinset.filter (fun e => ¬ ∀ v, v ∈ e → v ∉ W)).card := by
+    rw [hEa]
+    exact (Finset.card_filter_add_card_filter_not
+      (p := fun (e : Sym2 V) => ∀ v, v ∈ e → v ∉ W) (s := G.edgeFinset)).symm
+  have htouch : (G.edgeFinset \ Eavoid) ⊆
+      W.biUnion (fun w => G.incidenceFinset w) := by
+    intro e he
+    rw [Finset.mem_sdiff, hEa, Finset.mem_filter] at he
+    have hex : ∃ v, v ∈ e ∧ v ∈ W := by
+      by_contra hcon
+      push_neg at hcon
+      exact he.2 ⟨he.1, fun v hv => hcon v hv⟩
+    obtain ⟨v, hv, hvw⟩ := hex
+    have hmemE : e ∈ G.edgeFinset := he.1
+    have hmemI : e ∈ G.incidenceSet v := ⟨G.mem_edgeFinset.mp hmemE, hv⟩
+    exact Finset.mem_biUnion.mpr ⟨v, hvw, (G.mem_incidenceFinset v e).2 hmemI⟩
   sorry
 
 end Rad
