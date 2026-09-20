@@ -558,7 +558,24 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   -- Contrapositive of overlap_book_bound: if every triangle's degree-sum is
   -- < n + k then all books < k/3 — with k := n/6 + 3, hcon caps each triangle:
   -- Σ_{v∈t} d(v) ≤ n + n/6 + 3 (else overlap gives book ≥ n/18, contradiction).
+  -- Degree-sum over W equals sum over packing triangles (W = disjoint union)
+  have hdegsum : ∑ w ∈ coveredVerts P.tris, G.degree w
+      = (P.tris.map (fun t => ∑ v ∈ t, G.degree v)).sum := by
+    sorry
+  -- Each packing triangle has degree-sum ≤ n + n/6 + 3
+  have htri_bound : ∀ t ∈ P.tris, ∑ v ∈ t, G.degree v ≤ n + n / 6 + 3 := by
+    intro t ht
+    by_contra hbig
+    push_neg at hbig
+    -- hbig : n + n/6 + 3 < Σ d(v). Extract the triangle's vertices & adjacency.
+    -- overlap_book_bound needs Adj pairs + dsum ≥ n + k with k := n/6 + 3,
+    -- giving book ≥ k/3 = (n/6+3)/3 ≥ n/18 — contradicting hcon.
+    sorry
+  -- Mantel on uncovered part (m = n - 3r vertices)
+  have hmantel : ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
+      ≤ (n - 3 * r) ^ 2 / 4 := by
+    sorry
+  -- Final arithmetic: contradiction with he
   sorry
-
 
 end Rad
