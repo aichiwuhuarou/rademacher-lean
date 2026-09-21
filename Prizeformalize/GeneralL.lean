@@ -574,6 +574,42 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   -- Mantel on uncovered part (m = n - 3r vertices)
   have hmantel : ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
       ≤ (n - 3 * r) ^ 2 / 4 := by
+    -- Turán bound on a CliqueFree-3 graph: e ≤ ⌊N²/4⌋
+    have htur := SimpleGraph.CliqueFree.card_edgeFinset_le (r := 2)
+      (G := G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)) hcf
+    -- 设 m := 剩余图顶点数，用 omega 吃掉 Turan 的 % 2 / choose 2（都是小量）
+    set m := Fintype.card ↥((↑(coveredVerts P.tris) : Set V)ᶜ) with hm
+    -- Turan RHS ≤ m²/4 的初等验证（m % 2 ∈ {0,1}，choose 2 ∈ {0,0}）
+    have hturz : ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
+        ≤ (m ^ 2 - (m % 2) ^ 2) * (2 - 1) / (2 * 2) + (m % 2).choose 2 := htur
+    have htur' : ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card ≤ m ^ 2 / 4 := by
+      rcases Nat.mod_two_eq_zero_or_one m with hm0 | hm1
+      · rw [hm0] at hturz
+        have h0c : (0 : ℕ).choose 2 = 0 := Nat.choose_eq_zero_of_lt (by omega)
+        rw [h0c, Nat.add_zero] at hturz
+        -- 目标: card ≤ (m² − 0²)·1/4；0² 与 (2−1) 归一后 omega 收
+        have hnorm : (m ^ 2 - (0:ℕ) ^ 2) * ((2:ℕ) - 1) / ((2:ℕ) * 2) = m ^ 2 / 4 := by
+          have e1 : ((0:ℕ) ^ 2) = 0 := by norm_num
+          have e2 : ((2:ℕ) - 1) = 1 := by omega
+          have e3 : ((2:ℕ) * 2) = 4 := by omega
+          rw [e1, e2, e3, Nat.sub_zero, Nat.mul_one]
+        rw [hnorm] at hturz
+        exact hturz
+      · rw [hm1] at hturz
+        have h1c : (1 : ℕ).choose 2 = 0 := Nat.choose_eq_zero_of_lt (by omega)
+        rw [h1c, Nat.add_zero] at hturz
+        have hnorm2 : (m ^ 2 - (1:ℕ) ^ 2) * ((2:ℕ) - 1) / ((2:ℕ) * 2) = (m ^ 2 - 1) / 4 := by
+          have e2 : ((2:ℕ) - 1) = 1 := by omega
+          have e3 : ((2:ℕ) * 2) = 4 := by omega
+          have e1 : ((1:ℕ) ^ 2) = 1 := by norm_num
+          rw [e1, e2, e3, Nat.mul_one]
+        rw [hnorm2] at hturz
+        calc ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
+            ≤ (m ^ 2 - 1) / 4 := hturz
+          _ ≤ m ^ 2 / 4 := Nat.div_le_div_right (by omega)
+  -- Cardinality of the induced subtype: n − #W, and #W = 3r (disjoint triangles)
+    have hcardW : (coveredVerts P.tris).card = 3 * r := by
+      sorry
     sorry
   -- Final arithmetic: contradiction with he
   sorry
