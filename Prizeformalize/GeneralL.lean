@@ -627,8 +627,45 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
           have hadisj : Disjoint a (coveredVerts rest) := by
             rw [Finset.disjoint_iff_inter_eq_empty]
             by_contra hne
-            -- 交集非空 ⟹ 取 x ∈ a ∩ ⋃rest ⟹ 取 t ∈ rest 含 x ⟹ a ≠ t（否则 Disjoint a a ⟹ a 空 ⟹ x ∉ a）⟹ pairwise 给 Disjoint a t ⟹ x ∉ a∩t 矛盾
-            sorry
+            have hne' : (a ∩ coveredVerts rest).Nonempty :=
+              Finset.nonempty_of_ne_empty hne
+            obtain ⟨x, hx⟩ := hne'
+            rw [Finset.mem_inter, mem_coveredVerts] at hx
+            obtain ⟨hxa, t, htrest, hxt⟩ := hx
+            -- 非退化分离：a = t 的情形由 x∈a（hxa）与 x∈t（hxt）在 t=a 时无信息，
+            -- 但 a ∈ rest（因 t=a∈rest）会让 pairwise 需要 a≠a（坏路径）。
+            -- 改从列表结构：a :: rest 中 a 与每个 rest 元素的 Disjoint 来自
+            -- hdisj 本身——但它的前提是 a ≠ t。
+            -- 非退化论证：假设 a = t；则 x ∈ a（两个成员关系重合），
+            -- 且 rest 含 a。此时 coveredVerts (a::rest) ⊇ a ∪ (a ∪ …) 仍含 x，
+            -- 与我们要证 Disjoint a (⋃rest) 并不矛盾——数学上确实需要 a ∉ rest！
+            -- 列表可含重复：hstep 的假设 pairwise 保证 a ∈ rest ⟹ Disjoint a a ⟹ a = ∅
+            -- ⟹ x ∉ a。矛盾。而这个 Disjoint a a 的取得需要给 hdisj 一个 a ≠ a ——坏。
+            -- 正确绕法：pairwise 在数学上已蕴含列表无重复元素（Disjoint t t ⟹ t = ∅，
+            -- 而 card = 3 ≠ 0）。把这一步先证成引理形式：
+            have hnoempty : ∀ s ∈ (a :: rest), s ≠ ∅ := by
+              intro s hs
+              have hc3 : s.card = 3 := hcard s hs
+              intro hempty
+              rw [hempty] at hc3
+              simp at hc3
+            -- 若 a = t：x ∈ a = ∅ 矛盾（由 hnoempty a）——不需要 a≠a！
+            by_cases heq : a = t
+            · rw [← heq] at hxt
+              exact absurd hxa (by
+                have hae : a = ∅ := by
+                  by_contra hane
+                  -- a 非空且 a ∈ rest ⟹ 列表重复 ⟹ pairwise 需要自反 disjoint —— 仍坏
+                  sorry
+                sorry)
+            · -- a ≠ t 正常路径
+              have hdta : Disjoint a t :=
+                hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
+              have hia : a ∩ t = ∅ := Finset.disjoint_iff_inter_eq_empty.mp hdta
+              exact absurd (Finset.mem_inter.mpr ⟨hxa, hxt⟩) (by
+                intro hm
+                rw [hia] at hm
+                simp at hm)
           rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
             Finset.card_union_of_disjoint hadisj, ih hrestcard hrestdisj]
           show a.card + 3 * rest.length = 3 * (rest.length + 1)
