@@ -631,6 +631,8 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
             sorry
           rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
             Finset.card_union_of_disjoint hadisj, ih hrestcard hrestdisj]
+          show a.card + 3 * rest.length = 3 * (rest.length + 1)
+          rw [hca]
           omega
       exact hstep P.tris
         (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
