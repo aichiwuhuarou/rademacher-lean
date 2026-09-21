@@ -649,15 +649,11 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
               intro hempty
               rw [hempty] at hc3
               simp at hc3
-            -- 若 a = t：x ∈ a = ∅ 矛盾（由 hnoempty a）——不需要 a≠a！
             by_cases heq : a = t
-            · rw [← heq] at hxt
-              exact absurd hxa (by
-                have hae : a = ∅ := by
-                  by_contra hane
-                  -- a 非空且 a ∈ rest ⟹ 列表重复 ⟹ pairwise 需要自反 disjoint —— 仍坏
-                  sorry
-                sorry)
+            · -- 退化：a = t（列表重复情形）。一般 List 下 pairwise 不可用；
+              -- 我们的 P.tris 来自 powerset.toList（Nodup），实际不触发。
+              -- hstep 陈述将加强为 Nodup 版本（下一 TODO）；此处暂时让过。
+              sorry
             · -- a ≠ t 正常路径
               have hdta : Disjoint a t :=
                 hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
