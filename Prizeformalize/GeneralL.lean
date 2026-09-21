@@ -685,7 +685,21 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
       exact hstep P.tris htrisnodup
         (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
         P.pairwise_disjoint
-    sorry
+    -- m = n − |W|（子类型补集基数）且 |W| = 3r
+    have hmW : m = n - (coveredVerts P.tris).card := by
+      have hcompl := Fintype.card_subtype_compl
+        (p := fun x : V => x ∈ (↑(coveredVerts P.tris) : Set V))
+      have hcoe : Fintype.card {x : V // x ∈ (↑(coveredVerts P.tris) : Set V)}
+          = (coveredVerts P.tris).card := by
+        simp [Fintype.card_coe]
+      simp only [Set.mem_compl_iff, Finset.mem_coe.not] at hcompl
+      rw [hcoe] at hcompl
+      exact hcompl
+    have hcardW' : (coveredVerts P.tris).card = 3 * r := hcardW
+    have hmeq : m = n - 3 * r := by omega
+    calc ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
+        ≤ m ^ 2 / 4 := htur'
+      _ = (n - 3 * r) ^ 2 / 4 := by rw [hmeq]
   -- Final arithmetic: contradiction with he
   sorry
 
