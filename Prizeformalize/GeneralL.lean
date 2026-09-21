@@ -567,6 +567,71 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   have hsplit := edge_split_count G P
   -- Mantel on the uncovered part: e(G[Wᶜ]) ≤ ⌊m²/4⌋ where m = n − 3r
   set r := P.tris.length with hrdef
+  -- |W| = 3r by list induction (disjoint 3-sets add 3 per step)
+  have hcardW : (coveredVerts P.tris).card = 3 * r := by
+    have hstep : ∀ (l : List (Finset V)), l.Nodup →
+        (∀ t ∈ l, t.card = 3) →
+        (∀ t₁ ∈ l, ∀ t₂ ∈ l, t₁ ≠ t₂ → Disjoint t₁ t₂) →
+        (coveredVerts l).card = 3 * l.length := by
+      intro l hnodup hcard hdisj
+      induction l with
+      | nil => rfl
+      | cons a rest ih =>
+        obtain ⟨hanin, hrestnodup⟩ := List.nodup_cons.mp hnodup
+        have hca : a.card = 3 := hcard a (List.mem_cons_self)
+        have hrestcard : ∀ t ∈ rest, t.card = 3 :=
+          fun t ht => hcard t (List.mem_cons_of_mem a ht)
+        have hrestdisj : ∀ t₁ ∈ rest, ∀ t₂ ∈ rest, t₁ ≠ t₂ → Disjoint t₁ t₂ :=
+          fun t1 h1 t2 h2 ne =>
+            hdisj t1 (List.mem_cons_of_mem a h1) t2 (List.mem_cons_of_mem a h2) ne
+        -- a 与 rest 的并集不相交：a ∩ (⋃rest) = ∅ 因为每个 t 与 a 不相交
+        have hadisj : Disjoint a (coveredVerts rest) := by
+          rw [Finset.disjoint_iff_inter_eq_empty]
+          by_contra hne
+          have hne' : (a ∩ coveredVerts rest).Nonempty :=
+            Finset.nonempty_of_ne_empty hne
+          obtain ⟨x, hx⟩ := hne'
+          rw [Finset.mem_inter, mem_coveredVerts] at hx
+          obtain ⟨hxa, t, htrest, hxt⟩ := hx
+          -- 非退化分离：a = t 的情形由 x∈a（hxa）与 x∈t（hxt）在 t=a 时无信息，
+          -- 但 a ∈ rest（因 t=a∈rest）会让 pairwise 需要 a≠a（坏路径）。
+          -- 改从列表结构：a :: rest 中 a 与每个 rest 元素的 Disjoint 来自
+          -- hdisj 本身——但它的前提是 a ≠ t。
+          -- 非退化论证：假设 a = t；则 x ∈ a（两个成员关系重合），
+          -- 且 rest 含 a。此时 coveredVerts (a::rest) ⊇ a ∪ (a ∪ …) 仍含 x，
+          -- 与我们要证 Disjoint a (⋃rest) 并不矛盾——数学上确实需要 a ∉ rest！
+          -- 列表可含重复：hstep 的假设 pairwise 保证 a ∈ rest ⟹ Disjoint a a ⟹ a = ∅
+          -- ⟹ x ∉ a。矛盾。而这个 Disjoint a a 的取得需要给 hdisj 一个 a ≠ a ——坏。
+          -- 正确绕法：pairwise 在数学上已蕴含列表无重复元素（Disjoint t t ⟹ t = ∅，
+          -- 而 card = 3 ≠ 0）。把这一步先证成引理形式：
+          have hnoempty : ∀ s ∈ (a :: rest), s ≠ ∅ := by
+            intro s hs
+            have hc3 : s.card = 3 := hcard s hs
+            intro hempty
+            rw [hempty] at hc3
+            simp at hc3
+          by_cases heq : a = t
+          · -- 退化：a = t ⟹ a ∈ rest（htrest）与 Nodup 给的 a ∉ rest 矛盾
+            rw [← heq] at htrest
+            exact absurd htrest hanin
+          · -- a ≠ t 正常路径
+            have hdta : Disjoint a t :=
+              hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
+            have hia : a ∩ t = ∅ := Finset.disjoint_iff_inter_eq_empty.mp hdta
+            exact absurd (Finset.mem_inter.mpr ⟨hxa, hxt⟩) (by
+              intro hm
+              rw [hia] at hm
+              simp at hm)
+        rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
+          Finset.card_union_of_disjoint hadisj, ih hrestnodup hrestcard hrestdisj]
+        show a.card + 3 * rest.length = 3 * (rest.length + 1)
+        rw [hca]
+        omega
+    have htrisnodup : P.tris.Nodup := P.tris_nodup
+    exact hstep P.tris htrisnodup
+      (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
+      P.pairwise_disjoint
+
   -- W is the disjoint union of the r triangles; degree sum decomposes:
   -- Σ_{w∈W} d(w) = Σᵢ Σ_{v ∈ tᵢ} d(v); each triangle has 3 vertices.
   -- Contrapositive of overlap_book_bound: if every triangle's degree-sum is
@@ -691,70 +756,6 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
         calc ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
             ≤ (m ^ 2 - 1) / 4 := hturz
           _ ≤ m ^ 2 / 4 := Nat.div_le_div_right (by omega)
-  -- Cardinality: |W| = 3r by list induction (disjoint 3-sets add 3 per step)
-    have hcardW : (coveredVerts P.tris).card = 3 * r := by
-      have hstep : ∀ (l : List (Finset V)), l.Nodup →
-          (∀ t ∈ l, t.card = 3) →
-          (∀ t₁ ∈ l, ∀ t₂ ∈ l, t₁ ≠ t₂ → Disjoint t₁ t₂) →
-          (coveredVerts l).card = 3 * l.length := by
-        intro l hnodup hcard hdisj
-        induction l with
-        | nil => rfl
-        | cons a rest ih =>
-          obtain ⟨hanin, hrestnodup⟩ := List.nodup_cons.mp hnodup
-          have hca : a.card = 3 := hcard a (List.mem_cons_self)
-          have hrestcard : ∀ t ∈ rest, t.card = 3 :=
-            fun t ht => hcard t (List.mem_cons_of_mem a ht)
-          have hrestdisj : ∀ t₁ ∈ rest, ∀ t₂ ∈ rest, t₁ ≠ t₂ → Disjoint t₁ t₂ :=
-            fun t1 h1 t2 h2 ne =>
-              hdisj t1 (List.mem_cons_of_mem a h1) t2 (List.mem_cons_of_mem a h2) ne
-          -- a 与 rest 的并集不相交：a ∩ (⋃rest) = ∅ 因为每个 t 与 a 不相交
-          have hadisj : Disjoint a (coveredVerts rest) := by
-            rw [Finset.disjoint_iff_inter_eq_empty]
-            by_contra hne
-            have hne' : (a ∩ coveredVerts rest).Nonempty :=
-              Finset.nonempty_of_ne_empty hne
-            obtain ⟨x, hx⟩ := hne'
-            rw [Finset.mem_inter, mem_coveredVerts] at hx
-            obtain ⟨hxa, t, htrest, hxt⟩ := hx
-            -- 非退化分离：a = t 的情形由 x∈a（hxa）与 x∈t（hxt）在 t=a 时无信息，
-            -- 但 a ∈ rest（因 t=a∈rest）会让 pairwise 需要 a≠a（坏路径）。
-            -- 改从列表结构：a :: rest 中 a 与每个 rest 元素的 Disjoint 来自
-            -- hdisj 本身——但它的前提是 a ≠ t。
-            -- 非退化论证：假设 a = t；则 x ∈ a（两个成员关系重合），
-            -- 且 rest 含 a。此时 coveredVerts (a::rest) ⊇ a ∪ (a ∪ …) 仍含 x，
-            -- 与我们要证 Disjoint a (⋃rest) 并不矛盾——数学上确实需要 a ∉ rest！
-            -- 列表可含重复：hstep 的假设 pairwise 保证 a ∈ rest ⟹ Disjoint a a ⟹ a = ∅
-            -- ⟹ x ∉ a。矛盾。而这个 Disjoint a a 的取得需要给 hdisj 一个 a ≠ a ——坏。
-            -- 正确绕法：pairwise 在数学上已蕴含列表无重复元素（Disjoint t t ⟹ t = ∅，
-            -- 而 card = 3 ≠ 0）。把这一步先证成引理形式：
-            have hnoempty : ∀ s ∈ (a :: rest), s ≠ ∅ := by
-              intro s hs
-              have hc3 : s.card = 3 := hcard s hs
-              intro hempty
-              rw [hempty] at hc3
-              simp at hc3
-            by_cases heq : a = t
-            · -- 退化：a = t ⟹ a ∈ rest（htrest）与 Nodup 给的 a ∉ rest 矛盾
-              rw [← heq] at htrest
-              exact absurd htrest hanin
-            · -- a ≠ t 正常路径
-              have hdta : Disjoint a t :=
-                hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
-              have hia : a ∩ t = ∅ := Finset.disjoint_iff_inter_eq_empty.mp hdta
-              exact absurd (Finset.mem_inter.mpr ⟨hxa, hxt⟩) (by
-                intro hm
-                rw [hia] at hm
-                simp at hm)
-          rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
-            Finset.card_union_of_disjoint hadisj, ih hrestnodup hrestcard hrestdisj]
-          show a.card + 3 * rest.length = 3 * (rest.length + 1)
-          rw [hca]
-          omega
-      have htrisnodup : P.tris.Nodup := P.tris_nodup
-      exact hstep P.tris htrisnodup
-        (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
-        P.pairwise_disjoint
     -- m = n − |W|（子类型补集基数）且 |W| = 3r
     have hmW : m = n - (coveredVerts P.tris).card := by
       have hcompl := Fintype.card_subtype_compl
@@ -770,7 +771,87 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
     calc ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
         ≤ m ^ 2 / 4 := htur'
       _ = (n - 3 * r) ^ 2 / 4 := by rw [hmeq]
-  -- Final arithmetic: contradiction with he
-  sorry
+  -- Final arithmetic
+  have hWn : (coveredVerts P.tris).card ≤ n := by
+    have hsub := Finset.card_le_card (Finset.subset_univ (coveredVerts P.tris))
+    rwa [Finset.card_univ, ← hn] at hsub
+  have h3rn : 3 * r ≤ n := by omega
+  rcases Nat.lt_or_ge n 36 with hn35 | hn35
+  · -- Small n: any triangle's edge has book ≥ 1 ≥ n/18
+    obtain ⟨t, ht⟩ := exists_mem_cliqueFinset_three G (by omega)
+    obtain ⟨hcl, hcard3⟩ := G.mem_cliqueFinset_iff.mp ht
+    have hlen : t.toList.length = 3 := by
+      rw [Finset.length_toList]; exact hcard3
+    obtain ⟨a, b, c, hlist⟩ := List.length_eq_three.mp hlen
+    have ht3 : t = ({a, b, c} : Finset V) := by
+      have h6 := t.toList_toFinset
+      rw [hlist] at h6
+      rw [← h6]; simp
+    have hnd : ([a, b, c] : List V).Nodup := by
+      have h9 := Finset.nodup_toList t
+      rw [hlist] at h9; exact h9
+    obtain ⟨hanin, hbcnd⟩ := List.nodup_cons.mp hnd
+    have hab : a ≠ b := fun h => hanin (h ▸ List.mem_cons_self)
+    have hac : a ≠ c := fun h => hanin (h ▸ (by simp))
+    obtain ⟨hbin, _⟩ := List.nodup_cons.mp hbcnd
+    have hbc : b ≠ c := fun h => hbin (h ▸ List.mem_cons_self)
+    have hma : a ∈ t := by rw [ht3]; simp
+    have hmb : b ∈ t := by rw [ht3]; simp
+    have hmc : c ∈ t := by rw [ht3]; simp
+    have hadj1 : G.Adj a b := hcl (Finset.mem_coe.2 hma) (Finset.mem_coe.2 hmb) hab
+    have hadjac : G.Adj a c := hcl (Finset.mem_coe.2 hma) (Finset.mem_coe.2 hmc) hac
+    have hadjbc : G.Adj b c := hcl (Finset.mem_coe.2 hmb) (Finset.mem_coe.2 hmc) hbc
+    have hbook1 : 1 ≤ bookSize G a b := by
+      rw [bookSize_eq_commonNeighbors]
+      have hcm : c ∈ G.neighborFinset a ∩ G.neighborFinset b :=
+        Finset.mem_inter.2
+          ⟨(G.mem_neighborFinset a c).mpr hadjac,
+           (G.mem_neighborFinset b c).mpr hadjbc⟩
+      exact Finset.one_le_card.2 ⟨c, hcm⟩
+    exact absurd (hcon a b hadj1) (by omega)
+  · -- n ≥ 36: pack the degree chain
+    obtain ⟨x, hx⟩ : ∃ x, n = x + 3 * r := by refine ⟨n - 3 * r, ?_⟩; omega
+    have hbound : (P.tris.map (fun t => ∑ v ∈ t, G.degree v)).sum
+        ≤ r * (n + n / 6 + 3) := by
+      have h1 := List.sum_le_sum (l := P.tris)
+        (f := fun t => ∑ v ∈ t, G.degree v) (g := fun _ => n + n / 6 + 3) htri_bound
+      have h2 : (P.tris.map (fun _ => n + n / 6 + 3)).sum
+          = P.tris.length * (n + n / 6 + 3) := by simp
+      rw [← hrdef] at h2
+      omega
+    have hchain : G.edgeFinset.card
+        ≤ r * (n + n / 6 + 3) + x * x / 4 := by
+      have hq : (n - 3 * r) ^ 2 = x * x := by
+        rw [hx, Nat.add_sub_cancel, pow_two]
+      omega
+    rcases Nat.lt_or_ge r (4 * n / 27 - 1) with hr | hr
+    · -- Small packing: the exact quadratic chain closes
+      have hpow : n ^ 2 = n * n := by ring
+      have he4 : n * n < 4 * G.edgeFinset.card := by omega
+      have h4e : 4 * G.edgeFinset.card
+          ≤ 4 * (r * (n + n / 6 + 3)) + x * x := by omega
+      have hexp : 4 * (r * (n + n / 6 + 3))
+          = 4 * (r * n) + 4 * (r * (n / 6)) + 12 * r := by ring
+      have hx6 : 6 * (r * (n / 6)) ≤ r * n := by
+        calc 6 * (r * (n / 6)) = r * (6 * (n / 6)) := by ring
+          _ ≤ r * n := Nat.mul_le_mul_left _ (by omega : 6 * (n / 6) ≤ n)
+      have hnn : n * n = x * x + 6 * (x * r) + 9 * (r * r) := by rw [hx]; ring
+      have hrn : r * n = x * r + 3 * (r * r) := by rw [hx]; ring
+      have hsr4 : 4 * (x * r) < 15 * (r * r) + 36 * r := by omega
+      have hcanc : 4 * x < 15 * r + 36 := by
+        by_contra hc
+        push_neg at hc
+        have hident : (15 * r + 36) * r = 15 * (r * r) + 36 * r := by ring
+        have hma : (4 * x) * r = 4 * (x * r) := Nat.mul_assoc 4 x r
+        have h2 : (15 * r + 36) * r ≤ (4 * x) * r :=
+          Nat.mul_le_mul hc (Nat.le_refl r)
+        omega
+      omega
+    · -- Large packing (r > 4n/27 − 2): the elementary Erdős-1962 packing chain
+      -- is insufficient here — its quadratic slack 3r²/4 − 9r/2 turns positive.
+      -- (The original paper's Lemma 2 sum has the same gap for large r.)
+      -- Closing this case requires Edwards-type book machinery
+      -- (max-cut / near-bipartite structure analysis), left as future work.
+      sorry
 
 end Rad
