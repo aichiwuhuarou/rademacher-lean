@@ -614,10 +614,47 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
     intro t ht
     by_contra hbig
     push_neg at hbig
-    -- hbig : n + n/6 + 3 < Σ d(v). Extract the triangle's vertices & adjacency.
-    -- overlap_book_bound needs Adj pairs + dsum ≥ n + k with k := n/6 + 3,
-    -- giving book ≥ k/3 = (n/6+3)/3 ≥ n/18 — contradicting hcon.
-    sorry
+    -- hbig : n + n/6 + 3 < Σ_{v∈t} d(v)
+    obtain ⟨hcl, hcard3⟩ := G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)
+    -- Extract the three vertices of the 3-clique t
+    have hlen : t.toList.length = 3 := by
+      rw [Finset.length_toList]; exact hcard3
+    obtain ⟨a, b, c, hlist⟩ := List.length_eq_three.mp hlen
+    have ht3 : t = ({a, b, c} : Finset V) := by
+      have h6 := t.toList_toFinset
+      rw [hlist] at h6
+      rw [← h6]
+      simp
+    -- Pairwise distinctness from Nodup of the Finset's toList
+    have hnd : ([a, b, c] : List V).Nodup := by
+      have h9 := Finset.nodup_toList t
+      rw [hlist] at h9
+      exact h9
+    obtain ⟨hanin, hbcnd⟩ := List.nodup_cons.mp hnd
+    have hab : a ≠ b := fun h => hanin (h ▸ List.mem_cons_self)
+    have hac : a ≠ c := fun h => hanin (h ▸ (by simp))
+    obtain ⟨hbin, _⟩ := List.nodup_cons.mp hbcnd
+    have hbc : b ≠ c := fun h => hbin (h ▸ List.mem_cons_self)
+    -- Membership and adjacency
+    have hma : a ∈ t := by rw [ht3]; simp
+    have hmb : b ∈ t := by rw [ht3]; simp
+    have hmc : c ∈ t := by rw [ht3]; simp
+    have hadj1 : G.Adj a b := hcl (Finset.mem_coe.2 hma) (Finset.mem_coe.2 hmb) hab
+    have hadj2 : G.Adj b c := hcl (Finset.mem_coe.2 hmb) (Finset.mem_coe.2 hmc) hbc
+    have hadj3 : G.Adj c a :=
+      hcl (Finset.mem_coe.2 hmc) (Finset.mem_coe.2 hma) (fun h => hac h.symm)
+    -- Named degree-sum equals the Finset sum
+    have hsum3 : ∑ v ∈ t, G.degree v
+        = G.degree a + G.degree b + G.degree c := by
+      rw [ht3,
+        Finset.sum_insert (by simp [hab, hac] : a ∉ ({b, c} : Finset V)),
+        Finset.sum_insert (by simp [hbc] : b ∉ ({c} : Finset V))]
+      simp [Nat.add_assoc]
+    -- k := n/6 + 4 absorbs the strict inequality in hbig
+    obtain ⟨x, y, hxyadj, hxybook⟩ :=
+      overlap_book_bound G a b c hadj1 hadj2 hadj3 (n / 6 + 4)
+        (by rw [← hn]; omega)
+    exact absurd (hcon x y hxyadj) (by omega)
   -- Mantel on uncovered part (m = n - 3r vertices)
   have hmantel : ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
       ≤ (n - 3 * r) ^ 2 / 4 := by
