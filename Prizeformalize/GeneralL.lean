@@ -106,6 +106,7 @@ structure TrianglePacking where
   tris : List (Finset V)
   mem_triangles : ∀ t ∈ tris, t ∈ G.cliqueFinset 3
   pairwise_disjoint : ∀ t₁ ∈ tris, ∀ t₂ ∈ tris, t₁ ≠ t₂ → Disjoint t₁ t₂
+  tris_nodup : tris.Nodup
 
 /-- A packing is maximal: every triangle of `G` meets some triangle in the packing. -/
 def TrianglePacking.IsMaximal (P : TrianglePacking G) : Prop :=
@@ -154,11 +155,24 @@ theorem exists_maximal_trianglePacking :
   have hne : candidates.Nonempty := ⟨∅, hempty⟩
   -- Take a maximum-cardinality candidate
   obtain ⟨S, hS, hmax⟩ := Finset.exists_max_image candidates (fun s => s.card) hne
+  have hlistnodup : ∀ (T : Finset (Finset V)), T.toList.Nodup := by
+    intro T
+    induction T using Finset.induction_on with
+    | empty => simp
+    | @insert a s ha ih =>
+      have hperm : (insert a s : Finset (Finset V)).toList.Perm (a :: s.toList) :=
+        Finset.toList_insert ha
+      refine List.Perm.nodup_iff hperm |>.mpr ?_
+      rw [List.nodup_cons]
+      exact ⟨fun hmem => ha (Finset.mem_toList.mp hmem), ih⟩
+  have hSmem : S ∈ candidates := hS
+  simp only [hcand, Finset.mem_filter, Finset.mem_powerset] at hSmem
+
   have hSmem : S ∈ candidates := hS
   simp only [hcand, Finset.mem_filter, Finset.mem_powerset] at hSmem
   obtain ⟨hsub, hdisj⟩ := hSmem
   -- Build the packing from S
-  refine ⟨⟨S.toList, ?_, ?_⟩, ?_⟩
+  refine ⟨⟨S.toList, ?_, ?_, hlistnodup S⟩, ?_⟩
   · intro t ht
     rw [Finset.mem_toList] at ht
     exact hsub ht
@@ -667,13 +681,7 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
           show a.card + 3 * rest.length = 3 * (rest.length + 1)
           rw [hca]
           omega
-      have htrisnodup : P.tris.Nodup := by
-        -- P.tris 来自 exists_maximal_trianglePacking 的 S.toList；
-        -- 但 P 在此处是抽象的——需要在 packing 构造时携带 Nodup 证明。
-        -- 现实检查：TrianglePacking 的 tris 字段是 List，P 是存在量词给出的；
-        -- 在 linear_book 中无法直接重构其来源。干净解法：给 TrianglePacking
-        -- 加 tris_nodup 字段并在构造时提供。此处先按数学事实声明。
-        sorry
+      have htrisnodup : P.tris.Nodup := P.tris_nodup
       exact hstep P.tris htrisnodup
         (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
         P.pairwise_disjoint
