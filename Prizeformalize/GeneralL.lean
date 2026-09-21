@@ -88,7 +88,7 @@ def coveredVerts (S : List (Finset V)) : Finset V := S.foldr (· ∪ ·) ∅
 lemma mem_coveredVerts {x : V} {S : List (Finset V)} :
     x ∈ coveredVerts S ↔ ∃ t ∈ S, x ∈ t := by
   induction S with
-  | nil => simp [coveredVerts]
+  | nil => constructor <;> simp [coveredVerts]
   | cons a rest ih =>
     show x ∈ a ∪ List.foldr (· ∪ ·) ∅ rest ↔ ∃ t ∈ a :: rest, x ∈ t
     rw [Finset.mem_union, show x ∈ List.foldr (· ∪ ·) ∅ rest ↔ ∃ t ∈ rest, x ∈ t from ih]
@@ -607,9 +607,34 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
         calc ((G.induce ((↑(coveredVerts P.tris) : Set V)ᶜ)).edgeFinset).card
             ≤ (m ^ 2 - 1) / 4 := hturz
           _ ≤ m ^ 2 / 4 := Nat.div_le_div_right (by omega)
-  -- Cardinality of the induced subtype: n − #W, and #W = 3r (disjoint triangles)
+  -- Cardinality: |W| = 3r by list induction (disjoint 3-sets add 3 per step)
     have hcardW : (coveredVerts P.tris).card = 3 * r := by
-      sorry
+      have hstep : ∀ (l : List (Finset V)),
+          (∀ t ∈ l, t.card = 3) →
+          (∀ t₁ ∈ l, ∀ t₂ ∈ l, t₁ ≠ t₂ → Disjoint t₁ t₂) →
+          (coveredVerts l).card = 3 * l.length := by
+        intro l hcard hdisj
+        induction l with
+        | nil => rfl
+        | cons a rest ih =>
+          have hca : a.card = 3 := hcard a (List.mem_cons_self)
+          have hrestcard : ∀ t ∈ rest, t.card = 3 :=
+            fun t ht => hcard t (List.mem_cons_of_mem a ht)
+          have hrestdisj : ∀ t₁ ∈ rest, ∀ t₂ ∈ rest, t₁ ≠ t₂ → Disjoint t₁ t₂ :=
+            fun t1 h1 t2 h2 ne =>
+              hdisj t1 (List.mem_cons_of_mem a h1) t2 (List.mem_cons_of_mem a h2) ne
+          -- a 与 rest 的并集不相交：a ∩ (⋃rest) = ∅ 因为每个 t 与 a 不相交
+          have hadisj : Disjoint a (coveredVerts rest) := by
+            rw [Finset.disjoint_iff_inter_eq_empty]
+            by_contra hne
+            -- 交集非空 ⟹ 取 x ∈ a ∩ ⋃rest ⟹ 取 t ∈ rest 含 x ⟹ a ≠ t（否则 Disjoint a a ⟹ a 空 ⟹ x ∉ a）⟹ pairwise 给 Disjoint a t ⟹ x ∉ a∩t 矛盾
+            sorry
+          rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
+            Finset.card_union_of_disjoint hadisj, ih hrestcard hrestdisj]
+          omega
+      exact hstep P.tris
+        (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
+        P.pairwise_disjoint
     sorry
   -- Final arithmetic: contradiction with he
   sorry
