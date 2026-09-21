@@ -609,14 +609,15 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
           _ ≤ m ^ 2 / 4 := Nat.div_le_div_right (by omega)
   -- Cardinality: |W| = 3r by list induction (disjoint 3-sets add 3 per step)
     have hcardW : (coveredVerts P.tris).card = 3 * r := by
-      have hstep : ∀ (l : List (Finset V)),
+      have hstep : ∀ (l : List (Finset V)), l.Nodup →
           (∀ t ∈ l, t.card = 3) →
           (∀ t₁ ∈ l, ∀ t₂ ∈ l, t₁ ≠ t₂ → Disjoint t₁ t₂) →
           (coveredVerts l).card = 3 * l.length := by
-        intro l hcard hdisj
+        intro l hnodup hcard hdisj
         induction l with
         | nil => rfl
         | cons a rest ih =>
+          obtain ⟨hanin, hrestnodup⟩ := List.nodup_cons.mp hnodup
           have hca : a.card = 3 := hcard a (List.mem_cons_self)
           have hrestcard : ∀ t ∈ rest, t.card = 3 :=
             fun t ht => hcard t (List.mem_cons_of_mem a ht)
@@ -650,10 +651,9 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
               rw [hempty] at hc3
               simp at hc3
             by_cases heq : a = t
-            · -- 退化：a = t（列表重复情形）。一般 List 下 pairwise 不可用；
-              -- 我们的 P.tris 来自 powerset.toList（Nodup），实际不触发。
-              -- hstep 陈述将加强为 Nodup 版本（下一 TODO）；此处暂时让过。
-              sorry
+            · -- 退化：a = t ⟹ a ∈ rest（htrest）与 Nodup 给的 a ∉ rest 矛盾
+              rw [← heq] at htrest
+              exact absurd htrest hanin
             · -- a ≠ t 正常路径
               have hdta : Disjoint a t :=
                 hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
@@ -663,11 +663,18 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
                 rw [hia] at hm
                 simp at hm)
           rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl,
-            Finset.card_union_of_disjoint hadisj, ih hrestcard hrestdisj]
+            Finset.card_union_of_disjoint hadisj, ih hrestnodup hrestcard hrestdisj]
           show a.card + 3 * rest.length = 3 * (rest.length + 1)
           rw [hca]
           omega
-      exact hstep P.tris
+      have htrisnodup : P.tris.Nodup := by
+        -- P.tris 来自 exists_maximal_trianglePacking 的 S.toList；
+        -- 但 P 在此处是抽象的——需要在 packing 构造时携带 Nodup 证明。
+        -- 现实检查：TrianglePacking 的 tris 字段是 List，P 是存在量词给出的；
+        -- 在 linear_book 中无法直接重构其来源。干净解法：给 TrianglePacking
+        -- 加 tris_nodup 字段并在构造时提供。此处先按数学事实声明。
+        sorry
+      exact hstep P.tris htrisnodup
         (fun t ht => (G.mem_cliqueFinset_iff.mp (P.mem_triangles t ht)).2)
         P.pairwise_disjoint
     sorry
