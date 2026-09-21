@@ -575,7 +575,40 @@ theorem linear_book (he : Fintype.card V ^ 2 / 4 < G.edgeFinset.card) :
   -- Degree-sum over W equals sum over packing triangles (W = disjoint union)
   have hdegsum : ∑ w ∈ coveredVerts P.tris, G.degree w
       = (P.tris.map (fun t => ∑ v ∈ t, G.degree v)).sum := by
-    sorry
+    have hstep2 : ∀ (l : List (Finset V)), l.Nodup →
+        (∀ t₁ ∈ l, ∀ t₂ ∈ l, t₁ ≠ t₂ → Disjoint t₁ t₂) →
+        ∑ w ∈ coveredVerts l, G.degree w
+          = (l.map (fun t => ∑ v ∈ t, G.degree v)).sum := by
+      intro l hnodup hdisj
+      induction l with
+      | nil => simp [coveredVerts]
+      | cons a rest ih =>
+        obtain ⟨hanin, hrestnodup⟩ := List.nodup_cons.mp hnodup
+        have hrestdisj : ∀ t₁ ∈ rest, ∀ t₂ ∈ rest, t₁ ≠ t₂ → Disjoint t₁ t₂ :=
+          fun t1 h1 t2 h2 ne =>
+            hdisj t1 (List.mem_cons_of_mem a h1) t2 (List.mem_cons_of_mem a h2) ne
+        have hadisj : Disjoint a (coveredVerts rest) := by
+          rw [Finset.disjoint_iff_inter_eq_empty]
+          by_contra hne
+          have hne' : (a ∩ coveredVerts rest).Nonempty :=
+            Finset.nonempty_of_ne_empty hne
+          obtain ⟨x, hx⟩ := hne'
+          rw [Finset.mem_inter, mem_coveredVerts] at hx
+          obtain ⟨hxa, t, htrest, hxt⟩ := hx
+          by_cases heq : a = t
+          · rw [← heq] at htrest
+            exact absurd htrest hanin
+          · have hdta : Disjoint a t :=
+              hdisj a (List.mem_cons_self) t (List.mem_cons_of_mem a htrest) heq
+            have hia : a ∩ t = ∅ := Finset.disjoint_iff_inter_eq_empty.mp hdta
+            exact absurd (Finset.mem_inter.mpr ⟨hxa, hxt⟩) (by
+              intro hm
+              rw [hia] at hm
+              simp at hm)
+        rw [show coveredVerts (a :: rest) = a ∪ coveredVerts rest from rfl]
+        rw [Finset.sum_union hadisj, List.map_cons, List.sum_cons]
+        rw [ih hrestnodup hrestdisj]
+    exact hstep2 P.tris P.tris_nodup P.pairwise_disjoint
   -- Each packing triangle has degree-sum ≤ n + n/6 + 3
   have htri_bound : ∀ t ∈ P.tris, ∑ v ∈ t, G.degree v ≤ n + n / 6 + 3 := by
     intro t ht
